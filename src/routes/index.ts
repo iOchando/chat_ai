@@ -10,7 +10,7 @@ export class Routes {
     const routeFiles = fs.readdirSync(__dirname);
 
     routeFiles.forEach((file: any) => {
-      if (file !== "index.ts" && file.endsWith(".ts")) {
+      if (file !== "index{.ts,.js}" && file.endsWith("{.ts,.js}")) {
         const requireClass = require(`./${file}`);
         const RouteClass: any = Object.values(requireClass)[0];
         new RouteClass(router);
