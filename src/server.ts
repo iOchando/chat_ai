@@ -4,6 +4,14 @@ import * as https from "https";
 import App from "./app";
 const fs = require("fs");
 const { Client } = require("whatsapp-web.js");
+import makeWASocket, {
+  DisconnectReason,
+  SignalDataSet,
+  makeCacheableSignalKeyStore,
+  makeInMemoryStore,
+  SignalDataTypeMap,
+  useMultiFileAuthState,
+} from "@whiskeysockets/baileys";
 // import { Client } from "whatsapp-web.js";
 
 const qrcode = require("qrcode-terminal");
@@ -18,11 +26,45 @@ class Server {
 
   constructor() {
     this.listen();
-    this.initClientWhatsApp();
+    this.connectToWhatsApp();
   }
 
-  private initClientWhatsApp() {
-    this.withOutSession();
+  private async connectToWhatsApp() {
+    const useStore = !process.argv.includes("--no-store");
+
+    const logger = MAIN_LOGGER.child({});
+    logger.level = "trace";
+
+    const store = useStore ? makeInMemoryStore({ logger }) : undefined;
+
+    const { state, saveCreds } = await useMultiFileAuthState("baileys_auth_info");
+    const sock = makeWASocket({
+      printQRInTerminal: true,
+      auth: {
+        creds: state.creds,
+        /** caching makes the store faster to send/recv messages */
+        keys: makeCacheableSignalKeyStore(state.keys, logger),
+      },
+    });
+    sock.ev.on("connection.update", (update) => {
+      const { connection, lastDisconnect } = update;
+      if (connection === "close") {
+        const shouldReconnect = lastDisconnect.error?.output?.statusCode !== DisconnectReason.loggedOut;
+        console.log("connection closed due to ", lastDisconnect.error, ", reconnecting ", shouldReconnect);
+        // reconnect if not logged out
+        if (shouldReconnect) {
+          connectToWhatsApp();
+        }
+      } else if (connection === "open") {
+        console.log("opened connection");
+      }
+    });
+    sock.ev.on("messages.upsert", (m) => {
+      console.log(JSON.stringify(m, undefined, 2));
+
+      console.log("replying to", m.messages[0].key.remoteJid);
+      sock.sendMessage(m.messages[0].key.remoteJid, { text: "Hello there!" });
+    });
   }
 
   private async withOutSession() {

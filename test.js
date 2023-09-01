@@ -1,38 +1,39 @@
-const { Client } = require("whatsapp-web.js");
-const fs = require("fs");
-const qrcode = require("qrcode-terminal");
+const { DisconnectReason, useMultiFileAuthState } = require("@whiskeysockets/baileys");
+const makeWASocket = require("@whiskeysockets/baileys").default;
+// import { Boom } from "@hapi/boom";
 
-const SESSION_FILE_PATH = "./session.json";
+async function connectToWhatsApp() {
+  const { state, saveCreds } = await useMultiFileAuthState("auth_info_baileys");
+  const sock = makeWASocket({
+    // can provide additional config here
+    printQRInTerminal: true,
+    auth: state,
+  });
+  sock.ev.on("connection.update", (update) => {
+    const { connection, lastDisconnect, qr } = update;
 
-const initCliente = () => {
-  try {
-    client = new Client();
+    if (qr) {
+      console.log(qr);
+    }
 
-    client.on("qr", (qr) => {
-      qrcode.generate(qr, { small: true });
-    });
+    if (connection === "close") {
+      const shouldReconnect = lastDisconnect.error?.output?.statusCode !== DisconnectReason.loggedOut;
+      // console.log("connection closed due to ", lastDisconnect.error, ", reconnecting ", shouldReconnect);
+      console.log("error");
+      // reconnect if not logged out
+      if (shouldReconnect) {
+        connectToWhatsApp();
+      }
+    } else if (connection === "open") {
+      console.log("opened connection");
+    }
+  });
+  // sock.ev.on("messages.upsert", async (m) => {
+  //   console.log(JSON.stringify(m, undefined, 2));
 
-    client.on("ready", () => {
-      console.log("Client is ready!");
-    });
-
-    client.on("authenticated", (session) => {
-      console.log("entro");
-      fs.writeFile(SESSION_FILE_PATH, JSON.stringify(session), (err) => {
-        if (err) {
-          console.log(err);
-        }
-      });
-    });
-
-    client.on("auth_failure", (err) => {
-      console.log("Autenticación fallida:", err);
-    });
-
-    client.initialize();
-  } catch (error) {
-    console.log(error);
-  }
-};
-
-initCliente();
+  //   console.log("replying to", m.messages[0].key.remoteJid);
+  //   await sock.sendMessage(m.messages[0].key.remoteJid, { text: "Hello there!" });
+  // });
+}
+// run in main file
+connectToWhatsApp();
