@@ -3,20 +3,18 @@ import * as http from "http";
 import * as https from "https";
 import App from "./app";
 const fs = require("fs");
-const { Client } = require("whatsapp-web.js");
-import makeWASocket, {
+import {
+  delay,
   DisconnectReason,
-  SignalDataSet,
-  makeCacheableSignalKeyStore,
+  fetchLatestBaileysVersion,
   makeInMemoryStore,
-  SignalDataTypeMap,
   useMultiFileAuthState,
+  useSingleFileAuthState,
+  jidNormalizedUser,
 } from "@whiskeysockets/baileys";
-// import { Client } from "whatsapp-web.js";
-
-const qrcode = require("qrcode-terminal");
-
-const SESSION_FILE_PATH = "./session.json";
+import makeWASocket from "@whiskeysockets/baileys";
+const path = require("path");
+const { Boom } = require("@hapi/boom");
 
 class Server {
   private app = App;
@@ -30,75 +28,71 @@ class Server {
   }
 
   private async connectToWhatsApp() {
-    const useStore = !process.argv.includes("--no-store");
-
-    const logger = MAIN_LOGGER.child({});
-    logger.level = "trace";
-
-    const store = useStore ? makeInMemoryStore({ logger }) : undefined;
-
-    const { state, saveCreds } = await useMultiFileAuthState("baileys_auth_info");
+    let { state, saveCreds } = await useMultiFileAuthState(path.resolve("./session"));
+    let { version, isLatest } = await fetchLatestBaileysVersion();
+    console.log(`using WA v${version.join(".")}, isLatest: ${isLatest}`);
     const sock = makeWASocket({
+      // can provide additional config here
       printQRInTerminal: true,
-      auth: {
-        creds: state.creds,
-        /** caching makes the store faster to send/recv messages */
-        keys: makeCacheableSignalKeyStore(state.keys, logger),
-      },
+      auth: state,
     });
-    sock.ev.on("connection.update", (update) => {
-      const { connection, lastDisconnect } = update;
-      if (connection === "close") {
-        const shouldReconnect = lastDisconnect.error?.output?.statusCode !== DisconnectReason.loggedOut;
-        console.log("connection closed due to ", lastDisconnect.error, ", reconnecting ", shouldReconnect);
-        // reconnect if not logged out
-        if (shouldReconnect) {
-          connectToWhatsApp();
-        }
-      } else if (connection === "open") {
-        console.log("opened connection");
+
+    sock.ev.on("creds.update", saveCreds);
+
+    sock.ev.on("connection.update", async (update) => {
+      if (update.connection == "open") {
+        sock.user = {
+          id: sock.state.legacy.user.id,
+          jid: sock.state.legacy.user.id,
+          name: sock.state.legacy.user.name,
+        };
+        console.log("ENTROOOOOOOOOOO!!!! *********************************");
+      }
+      const { lastDisconnect, connection } = update;
+      if (connection) {
+        console.info(`Connection Status : ${connection}`);
+      }
+
+      if (connection == "close") {
+        let reason = new Boom(lastDisconnect?.error)?.output.statusCode;
+        if (reason === DisconnectReason.badSession) {
+          console.log(`Bad Session File, Please Delete Session and Scan Again`);
+          sock.logout();
+        } else if (reason === DisconnectReason.connectionClosed) {
+          console.log("Connection closed, reconnecting....");
+          this.connectToWhatsApp();
+        } else if (reason === DisconnectReason.connectionLost) {
+          console.log("Connection Lost from Server, reconnecting...");
+          this.connectToWhatsApp();
+        } else if (reason === DisconnectReason.connectionReplaced) {
+          console.log("Connection Replaced, Another New Session Opened, Please Close Current Session First");
+          sock.logout();
+        } else if (reason === DisconnectReason.loggedOut) {
+          console.log(`Device Logged Out, Please Scan Again And Run.`);
+          process.exit();
+        } else if (reason === DisconnectReason.restartRequired) {
+          console.log("Restart Required, Restarting...");
+          this.connectToWhatsApp();
+        } else if (reason === DisconnectReason.timedOut) {
+          console.log("Connection TimedOut, Reconnecting...");
+          this.connectToWhatsApp();
+        } 
+        // else sock.end(`Unknown DisconnectReason: ${reason}|${connection }`);
       }
     });
-    sock.ev.on("messages.upsert", (m) => {
+
+    sock.ev.on("messages.upsert", async (m) => {
       console.log(JSON.stringify(m, undefined, 2));
 
       console.log("replying to", m.messages[0].key.remoteJid);
-      sock.sendMessage(m.messages[0].key.remoteJid, { text: "Hello there!" });
+
+      if (!m.messages[0].key.fromMe && m.messages[0].message?.conversation) {
+        console.log("entro");
+        await sock.sendMessage(m.messages[0].key.remoteJid!, { text: "Hola! Te esta respondiendo un BOT programado por Juan." });
+      }
+      // sendMessage("Hola! Te esta respondiendo un BOT programado por Juan.", m.messages[0].key.remoteJid);
+      // await sock.sendMessage(m.messages[0].key.remoteJid, { text: "Hola! Te esta respondiendo un BOT programado por Juan." });
     });
-  }
-
-  private async withOutSession() {
-    console.log("entro");
-    this.client = new Client();
-
-    this.client.on("qr", (qr: string) => {
-      qrcode.generate(qr, { small: true });
-    });
-
-    this.client.on("ready", () => {
-      console.log("Client is ready!");
-    });
-
-    this.client.on("authenticated", (session: any) => {
-      console.log("entro");
-      fs.writeFile(SESSION_FILE_PATH, JSON.stringify(session), (err: any) => {
-        if (err) {
-          console.log(err);
-        }
-      });
-    });
-
-    // this.client.on("auth_failure", (err: any) => {
-    //   console.log("Autenticación fallida:", err);
-    // });
-
-    // console.log(this.client);
-
-    const asd = await this.client.initialize();
-
-    console.log(asd);
-
-    console.log("fin");
   }
 
   public listen() {
