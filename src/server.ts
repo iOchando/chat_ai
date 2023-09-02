@@ -2,37 +2,43 @@ import "dotenv/config";
 import * as http from "http";
 import * as https from "https";
 import App from "./app";
-const fs = require("fs");
-import {
-  delay,
-  DisconnectReason,
-  fetchLatestBaileysVersion,
-  makeInMemoryStore,
-  useMultiFileAuthState,
-  useSingleFileAuthState,
-  jidNormalizedUser,
-} from "@whiskeysockets/baileys";
+import { DisconnectReason, fetchLatestBaileysVersion, useMultiFileAuthState } from "@whiskeysockets/baileys";
 import makeWASocket from "@whiskeysockets/baileys";
 const path = require("path");
-const { Boom } = require("@hapi/boom");
+import { Boom } from "@hapi/boom";
+import { CoreService } from "./bot/core.service";
+import dbConnect from "./config/mongo.config";
 
 class Server {
   private app = App;
   private port: number = Number(process.env.PORT) || 3000;
   private server!: http.Server | https.Server;
-  private client!: any;
+  private coreService: CoreService;
 
   constructor() {
-    this.listen();
+    this.coreService = new CoreService();
+    // this.listen();
     this.connectToWhatsApp();
+    this.connectMongoDB();
+  }
+
+  private connectMongoDB() {
+    dbConnect()
+      .then(() => {
+        console.log("connection MongoDB ready");
+      })
+      .catch((error) => {
+        console.error("Error to connect MongoDB ", error);
+      });
   }
 
   private async connectToWhatsApp() {
     let { state, saveCreds } = await useMultiFileAuthState(path.resolve("./session"));
     let { version, isLatest } = await fetchLatestBaileysVersion();
+
     console.log(`using WA v${version.join(".")}, isLatest: ${isLatest}`);
+
     const sock = makeWASocket({
-      // can provide additional config here
       printQRInTerminal: true,
       auth: state,
     });
@@ -41,14 +47,11 @@ class Server {
 
     sock.ev.on("connection.update", async (update) => {
       if (update.connection == "open") {
-        sock.user = {
-          id: sock.state.legacy.user.id,
-          jid: sock.state.legacy.user.id,
-          name: sock.state.legacy.user.name,
-        };
-        console.log("ENTROOOOOOOOOOO!!!! *********************************");
+        console.log("Connection ready!");
       }
+
       const { lastDisconnect, connection } = update;
+
       if (connection) {
         console.info(`Connection Status : ${connection}`);
       }
@@ -76,22 +79,19 @@ class Server {
         } else if (reason === DisconnectReason.timedOut) {
           console.log("Connection TimedOut, Reconnecting...");
           this.connectToWhatsApp();
-        } 
-        // else sock.end(`Unknown DisconnectReason: ${reason}|${connection }`);
+        } else {
+          this.connectToWhatsApp();
+        }
       }
     });
 
     sock.ev.on("messages.upsert", async (m) => {
       console.log(JSON.stringify(m, undefined, 2));
-
-      console.log("replying to", m.messages[0].key.remoteJid);
-
-      if (!m.messages[0].key.fromMe && m.messages[0].message?.conversation) {
-        console.log("entro");
-        await sock.sendMessage(m.messages[0].key.remoteJid!, { text: "Hola! Te esta respondiendo un BOT programado por Juan." });
+      if (!m.messages[0].key.fromMe && (m.messages[0].message?.conversation || m.messages[0].message?.extendedTextMessage?.text)) {
+        console.log("replying to", m.messages[0].key.remoteJid);
+        this.coreService.coreProcess(sock, m);
+        // await sock.sendMessage(m.messages[0].key.remoteJid!, { text: "Hola! Te esta respondiendo un BOT programado por Juan." });
       }
-      // sendMessage("Hola! Te esta respondiendo un BOT programado por Juan.", m.messages[0].key.remoteJid);
-      // await sock.sendMessage(m.messages[0].key.remoteJid, { text: "Hola! Te esta respondiendo un BOT programado por Juan." });
     });
   }
 

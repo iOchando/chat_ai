@@ -30,45 +30,92 @@ require("dotenv/config");
 const http = __importStar(require("http"));
 const https = __importStar(require("https"));
 const app_1 = __importDefault(require("./app"));
-const fs = require("fs");
-const { Client } = require("whatsapp-web.js");
-// import { Client } from "whatsapp-web.js";
-const qrcode = require("qrcode-terminal");
-const SESSION_FILE_PATH = "./session.json";
+const baileys_1 = require("@whiskeysockets/baileys");
+const baileys_2 = __importDefault(require("@whiskeysockets/baileys"));
+const path = require("path");
+const boom_1 = require("@hapi/boom");
+const core_service_1 = require("./bot/core.service");
+const mongo_config_1 = __importDefault(require("./config/mongo.config"));
 class Server {
     constructor() {
         this.app = app_1.default;
         this.port = Number(process.env.PORT) || 3000;
-        this.listen();
-        this.initClientWhatsApp();
+        this.coreService = new core_service_1.CoreService();
+        // this.listen();
+        this.connectToWhatsApp();
+        this.connectMongoDB();
     }
-    initClientWhatsApp() {
-        this.withOutSession();
+    connectMongoDB() {
+        (0, mongo_config_1.default)()
+            .then(() => {
+            console.log("connection MongoDB ready");
+        })
+            .catch((error) => {
+            console.error("Error to connect MongoDB ", error);
+        });
     }
-    async withOutSession() {
-        console.log("entro");
-        this.client = new Client();
-        this.client.on("qr", (qr) => {
-            qrcode.generate(qr, { small: true });
+    async connectToWhatsApp() {
+        let { state, saveCreds } = await (0, baileys_1.useMultiFileAuthState)(path.resolve("./session"));
+        let { version, isLatest } = await (0, baileys_1.fetchLatestBaileysVersion)();
+        console.log(`using WA v${version.join(".")}, isLatest: ${isLatest}`);
+        const sock = (0, baileys_2.default)({
+            printQRInTerminal: true,
+            auth: state,
         });
-        this.client.on("ready", () => {
-            console.log("Client is ready!");
-        });
-        this.client.on("authenticated", (session) => {
-            console.log("entro");
-            fs.writeFile(SESSION_FILE_PATH, JSON.stringify(session), (err) => {
-                if (err) {
-                    console.log(err);
+        sock.ev.on("creds.update", saveCreds);
+        sock.ev.on("connection.update", async (update) => {
+            var _a;
+            if (update.connection == "open") {
+                console.log("Connection ready!");
+            }
+            const { lastDisconnect, connection } = update;
+            if (connection) {
+                console.info(`Connection Status : ${connection}`);
+            }
+            if (connection == "close") {
+                let reason = (_a = new boom_1.Boom(lastDisconnect === null || lastDisconnect === void 0 ? void 0 : lastDisconnect.error)) === null || _a === void 0 ? void 0 : _a.output.statusCode;
+                if (reason === baileys_1.DisconnectReason.badSession) {
+                    console.log(`Bad Session File, Please Delete Session and Scan Again`);
+                    sock.logout();
                 }
-            });
+                else if (reason === baileys_1.DisconnectReason.connectionClosed) {
+                    console.log("Connection closed, reconnecting....");
+                    this.connectToWhatsApp();
+                }
+                else if (reason === baileys_1.DisconnectReason.connectionLost) {
+                    console.log("Connection Lost from Server, reconnecting...");
+                    this.connectToWhatsApp();
+                }
+                else if (reason === baileys_1.DisconnectReason.connectionReplaced) {
+                    console.log("Connection Replaced, Another New Session Opened, Please Close Current Session First");
+                    sock.logout();
+                }
+                else if (reason === baileys_1.DisconnectReason.loggedOut) {
+                    console.log(`Device Logged Out, Please Scan Again And Run.`);
+                    process.exit();
+                }
+                else if (reason === baileys_1.DisconnectReason.restartRequired) {
+                    console.log("Restart Required, Restarting...");
+                    this.connectToWhatsApp();
+                }
+                else if (reason === baileys_1.DisconnectReason.timedOut) {
+                    console.log("Connection TimedOut, Reconnecting...");
+                    this.connectToWhatsApp();
+                }
+                else {
+                    this.connectToWhatsApp();
+                }
+            }
         });
-        // this.client.on("auth_failure", (err: any) => {
-        //   console.log("Autenticación fallida:", err);
-        // });
-        // console.log(this.client);
-        const asd = await this.client.initialize();
-        console.log(asd);
-        console.log("fin");
+        sock.ev.on("messages.upsert", async (m) => {
+            var _a, _b, _c;
+            console.log(JSON.stringify(m, undefined, 2));
+            if (!m.messages[0].key.fromMe && (((_a = m.messages[0].message) === null || _a === void 0 ? void 0 : _a.conversation) || ((_c = (_b = m.messages[0].message) === null || _b === void 0 ? void 0 : _b.extendedTextMessage) === null || _c === void 0 ? void 0 : _c.text))) {
+                console.log("replying to", m.messages[0].key.remoteJid);
+                this.coreService.coreProcess(sock, m);
+                // await sock.sendMessage(m.messages[0].key.remoteJid!, { text: "Hola! Te esta respondiendo un BOT programado por Juan." });
+            }
+        });
     }
     listen() {
         if (process.env.NODE_ENV === "production") {
