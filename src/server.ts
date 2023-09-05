@@ -92,6 +92,8 @@ class Server {
     sock.ev.on("messages.upsert", async (m) => {
       console.log(JSON.stringify(m, undefined, 2));
 
+      sock.sendMessage(m.messages[0].key.remoteJid!, { text: "Hola" });
+
       if (m.messages[0].message) {
         let messageType = Object.keys(m.messages[0].message!)[0];
         if (messageType === "conversation" || messageType === "extendedTextMessage") {
