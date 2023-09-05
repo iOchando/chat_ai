@@ -13,7 +13,7 @@ class GptService {
                 const configMessages = [
                     {
                         role: "system",
-                        content: "Eres un asistente virtual en whatsapp muy util, y te llamas ChatGPT.",
+                        content: "Eres un asistente virtual en whatsapp muy util, y te llamas Allice.",
                     },
                 ];
                 for (const message of context.reverse()) {
