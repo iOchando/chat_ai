@@ -2,12 +2,16 @@ import "dotenv/config";
 import * as http from "http";
 import * as https from "https";
 import App from "./app";
-import { DisconnectReason, fetchLatestBaileysVersion, useMultiFileAuthState } from "@whiskeysockets/baileys";
+import { DisconnectReason, downloadMediaMessage, fetchLatestBaileysVersion, useMultiFileAuthState } from "@whiskeysockets/baileys";
 import makeWASocket from "@whiskeysockets/baileys";
 const path = require("path");
 import { Boom } from "@hapi/boom";
 import { CoreService } from "./bot/core.service";
 import dbConnect from "./config/mongo.config";
+import fs from "fs";
+import { OpenAI } from "openai";
+
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 class Server {
   private app = App;
@@ -87,10 +91,16 @@ class Server {
 
     sock.ev.on("messages.upsert", async (m) => {
       console.log(JSON.stringify(m, undefined, 2));
-      if (!m.messages[0].key.fromMe && (m.messages[0].message?.conversation || m.messages[0].message?.extendedTextMessage?.text)) {
-        console.log("replying to", m.messages[0].key.remoteJid);
-        this.coreService.coreProcess(sock, m);
-        // await sock.sendMessage(m.messages[0].key.remoteJid!, { text: "Hola! Te esta respondiendo un BOT programado por Juan." });
+
+      if (m.messages[0].message) {
+        let messageType = Object.keys(m.messages[0].message!)[0];
+        if (messageType === "conversation" || messageType === "extendedTextMessage") {
+          messageType = "textMessage";
+        }
+
+        if (!m.messages[0].key.fromMe && (messageType === "textMessage" || messageType === "audioMessage")) {
+          this.coreService.coreProcess(sock, m, messageType);
+        }
       }
     });
   }

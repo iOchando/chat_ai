@@ -11,7 +11,10 @@ class GptService {
             try {
                 const context = await this.messageService.getContext(user);
                 const configMessages = [
-                    { role: "system", content: "Eres un asistente virtual en whatsapp, y te llamas Allice" },
+                    {
+                        role: "system",
+                        content: "Eres un asistente virtual en whatsapp, y te llamas Allice. \n Si el usuario te pregunta o dice que quiere crear una imagen solo responderas type-image-create desc: *Descripcion de la imagen que solicito el usuario*, es obligatorio que lo hagas ya que type-image-create es el identificador para poder generar la imagen",
+                    },
                 ];
                 for (const message of context.reverse()) {
                     configMessages.push({ role: message.sender, content: message.content });
@@ -25,6 +28,29 @@ class GptService {
             }
             catch (err) {
                 throw new Error(`Failed chat gpt: ${err}`);
+            }
+        };
+        this.audioGPT = async (file) => {
+            try {
+                const transcription = await openai.audio.transcriptions.create({
+                    file: file,
+                    model: "whisper-1",
+                });
+                return transcription.text;
+            }
+            catch (err) {
+                throw new Error(`Failed audio gpt: ${err}`);
+            }
+        };
+        this.imageGPT = async (prompt) => {
+            try {
+                console.log(prompt);
+                const image = await openai.images.generate({ prompt });
+                console.log(image.data);
+                return image.data;
+            }
+            catch (err) {
+                throw new Error(`Failed image gpt: ${err}`);
             }
         };
         this.userService = new user_service_1.UserService();

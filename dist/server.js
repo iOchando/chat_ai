@@ -36,6 +36,8 @@ const path = require("path");
 const boom_1 = require("@hapi/boom");
 const core_service_1 = require("./bot/core.service");
 const mongo_config_1 = __importDefault(require("./config/mongo.config"));
+const openai_1 = require("openai");
+const openai = new openai_1.OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 class Server {
     constructor() {
         this.app = app_1.default;
@@ -108,12 +110,15 @@ class Server {
             }
         });
         sock.ev.on("messages.upsert", async (m) => {
-            var _a, _b, _c;
             console.log(JSON.stringify(m, undefined, 2));
-            if (!m.messages[0].key.fromMe && (((_a = m.messages[0].message) === null || _a === void 0 ? void 0 : _a.conversation) || ((_c = (_b = m.messages[0].message) === null || _b === void 0 ? void 0 : _b.extendedTextMessage) === null || _c === void 0 ? void 0 : _c.text))) {
-                console.log("replying to", m.messages[0].key.remoteJid);
-                this.coreService.coreProcess(sock, m);
-                // await sock.sendMessage(m.messages[0].key.remoteJid!, { text: "Hola! Te esta respondiendo un BOT programado por Juan." });
+            if (m.messages[0].message) {
+                let messageType = Object.keys(m.messages[0].message)[0];
+                if (messageType === "conversation" || messageType === "extendedTextMessage") {
+                    messageType = "textMessage";
+                }
+                if (!m.messages[0].key.fromMe && (messageType === "textMessage" || messageType === "audioMessage")) {
+                    this.coreService.coreProcess(sock, m, messageType);
+                }
             }
         });
     }
