@@ -22,7 +22,7 @@ export class GptService {
       const configMessages: OpenAI.Chat.Completions.CreateChatCompletionRequestMessage[] = [
         {
           role: "system",
-          content: "Eres un asistente virtual en whatsapp muy util, y te llamas Juan.",
+          content: "Eres un asistente virtual en whatsapp muy util, y te llamas ChatGPT.",
         },
       ];
 
