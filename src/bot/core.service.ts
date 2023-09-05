@@ -6,7 +6,6 @@ import { DisconnectReason, downloadMediaMessage } from "@whiskeysockets/baileys"
 import { writeFile } from "fs/promises";
 import { v4 as uuidv4 } from "uuid";
 import fs from "fs";
-import fetch from "cross-fetch";
 
 export class CoreService {
   private userService: UserService;
