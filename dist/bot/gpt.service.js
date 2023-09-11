@@ -13,12 +13,16 @@ class GptService {
                 const configMessages = [
                     {
                         role: "system",
-                        content: "Eres un asistente virtual en whatsapp muy util, y te llamas Allice.",
+                        content: "Eres una asistente virtual en whatsapp muy util, y te llamas Allice.",
                     },
                 ];
                 for (const message of context.reverse()) {
                     configMessages.push({ role: message.sender, content: message.content });
                 }
+                configMessages.push({
+                    role: "system",
+                    content: "a partir de ahora, si el ultimo mensaje del role {user} incluye una solicitud para crear una imagen, no respondas como un asistente virtual, solo responde unicamente con el siguiente texto: image-create, en cualquier otro caso responde normalmente.",
+                });
                 configMessages.push({ role: "user", content: content });
                 const completion = await openai.chat.completions.create({
                     messages: configMessages,

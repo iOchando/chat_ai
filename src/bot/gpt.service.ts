@@ -4,6 +4,7 @@ import { MessageService } from "../modules/message/message.service";
 import { IUser } from "../modules/user/user.model";
 import fs from "fs";
 
+
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export class GptService {
@@ -22,13 +23,19 @@ export class GptService {
       const configMessages: OpenAI.Chat.Completions.CreateChatCompletionRequestMessage[] = [
         {
           role: "system",
-          content: "Eres un asistente virtual en whatsapp muy util, y te llamas Allice.",
+          content: "Eres una asistente virtual en whatsapp muy util, y te llamas Allice.",
         },
       ];
 
       for (const message of context.reverse()) {
         configMessages.push({ role: message.sender as "function" | "system" | "user" | "assistant", content: message.content });
       }
+
+      configMessages.push({
+        role: "system",
+        content:
+          "a partir de ahora, si el ultimo mensaje del role {user} incluye una solicitud para crear una imagen, no respondas como un asistente virtual, solo responde unicamente con el siguiente texto: image-create, en cualquier otro caso responde normalmente.",
+      });
 
       configMessages.push({ role: "user", content: content });
 

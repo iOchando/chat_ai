@@ -6,6 +6,7 @@ import { DisconnectReason, downloadMediaMessage } from "@whiskeysockets/baileys"
 import { writeFile } from "fs/promises";
 import { v4 as uuidv4 } from "uuid";
 import fs from "fs";
+import fetch from "cross-fetch";
 
 export class CoreService {
   private userService: UserService;
@@ -53,29 +54,28 @@ export class CoreService {
 
       const response = await this.gptService.chatGPT(user, content);
 
-      // const imageArray: any = await this.gptService.imageGPT(content);
-
-      // for (const image of imageArray) {
-      //   const resp = await fetch(image.url);
-
-      //   const arrayBuffer = await resp.arrayBuffer();
-      //   const buffer = Buffer.from(arrayBuffer);
-
-      //   await socket.sendMessage(phoneId!, { image: buffer });
-      // }
-
-      // return;
-
-      // console.log(response);
-
       if (!response) {
         throw new Error(`Failed get response`);
       }
 
-      await this.messageService.createMessage("user", content, user);
-      await this.messageService.createMessage("assistant", response!, user);
+      if (response === "image-create") {
+        await socket.sendMessage(phoneId!, { text: "Creando imagen..." });
+        const imageArray: any = await this.gptService.imageGPT(content);
 
-      return await socket.sendMessage(phoneId!, { text: response });
+        for (const image of imageArray) {
+          const resp = await fetch(image.url);
+
+          const arrayBuffer = await resp.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
+
+          return await socket.sendMessage(phoneId!, { image: buffer });
+        }
+      } else {
+        await this.messageService.createMessage("user", content, user);
+        await this.messageService.createMessage("assistant", response!, user);
+
+        return await socket.sendMessage(phoneId!, { text: response });
+      }
     } catch (err) {
       throw new Error(`Failed chat gpt: ${err}`);
     }

@@ -11,6 +11,7 @@ const baileys_1 = require("@whiskeysockets/baileys");
 const promises_1 = require("fs/promises");
 const uuid_1 = require("uuid");
 const fs_1 = __importDefault(require("fs"));
+const cross_fetch_1 = __importDefault(require("cross-fetch"));
 class CoreService {
     constructor() {
         this.coreProcess = async (socket, m, messageType) => {
@@ -39,21 +40,26 @@ class CoreService {
                     user = await this.userService.createUser(phoneId);
                 }
                 const response = await this.gptService.chatGPT(user, content);
-                // const imageArray: any = await this.gptService.imageGPT(content);
-                // for (const image of imageArray) {
-                //   const resp = await fetch(image.url);
-                //   const arrayBuffer = await resp.arrayBuffer();
-                //   const buffer = Buffer.from(arrayBuffer);
-                //   await socket.sendMessage(phoneId!, { image: buffer });
-                // }
                 // return;
                 // console.log(response);
                 if (!response) {
                     throw new Error(`Failed get response`);
                 }
-                await this.messageService.createMessage("user", content, user);
-                await this.messageService.createMessage("assistant", response, user);
-                return await socket.sendMessage(phoneId, { text: response });
+                if (response === "image-create") {
+                    await socket.sendMessage(phoneId, { text: "Creando imagen..." });
+                    const imageArray = await this.gptService.imageGPT(content);
+                    for (const image of imageArray) {
+                        const resp = await (0, cross_fetch_1.default)(image.url);
+                        const arrayBuffer = await resp.arrayBuffer();
+                        const buffer = Buffer.from(arrayBuffer);
+                        return await socket.sendMessage(phoneId, { image: buffer });
+                    }
+                }
+                else {
+                    await this.messageService.createMessage("user", content, user);
+                    await this.messageService.createMessage("assistant", response, user);
+                    return await socket.sendMessage(phoneId, { text: response });
+                }
             }
             catch (err) {
                 throw new Error(`Failed chat gpt: ${err}`);
