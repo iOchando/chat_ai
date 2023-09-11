@@ -8,10 +8,7 @@ const path = require("path");
 import { Boom } from "@hapi/boom";
 import { CoreService } from "./bot/core.service";
 import dbConnect from "./config/mongo.config";
-import fs from "fs";
-import { OpenAI } from "openai";
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+import pino from "pino";
 
 class Server {
   private app = App;
@@ -29,7 +26,7 @@ class Server {
   private connectMongoDB() {
     dbConnect()
       .then(() => {
-        console.log("connection MongoDB ready");
+        console.log("Connection MongoDB ready");
       })
       .catch((error) => {
         console.error("Error to connect MongoDB ", error);
@@ -42,50 +39,32 @@ class Server {
 
     console.log(`using WA v${version.join(".")}, isLatest: ${isLatest}`);
 
+    const logger = pino({
+      level: "silent",
+    });
+
     const sock = makeWASocket({
       printQRInTerminal: true,
       auth: state,
+      logger,
     });
 
     sock.ev.on("creds.update", saveCreds);
 
     sock.ev.on("connection.update", async (update) => {
-      if (update.connection == "open") {
-        console.log("Connection ready!");
+      const { connection, lastDisconnect } = update;
+      if (connection === "close") {
+        const shouldReconnect = (lastDisconnect?.error as Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
+        console.log("Connection closed due to ", lastDisconnect?.error, ", reconnecting ", shouldReconnect);
+        if (shouldReconnect) {
+          this.connectToWhatsApp();
+        }
+      } else if (connection === "open") {
+        console.log("Connection Whatsapp ready");
       }
-
-      const { lastDisconnect, connection } = update;
 
       if (connection) {
         console.info(`Connection Status : ${connection}`);
-      }
-
-      if (connection == "close") {
-        let reason = new Boom(lastDisconnect?.error)?.output.statusCode;
-        if (reason === DisconnectReason.badSession) {
-          console.log(`Bad Session File, Please Delete Session and Scan Again`);
-          sock.logout();
-        } else if (reason === DisconnectReason.connectionClosed) {
-          console.log("Connection closed, reconnecting....");
-          this.connectToWhatsApp();
-        } else if (reason === DisconnectReason.connectionLost) {
-          console.log("Connection Lost from Server, reconnecting...");
-          this.connectToWhatsApp();
-        } else if (reason === DisconnectReason.connectionReplaced) {
-          console.log("Connection Replaced, Another New Session Opened, Please Close Current Session First");
-          sock.logout();
-        } else if (reason === DisconnectReason.loggedOut) {
-          console.log(`Device Logged Out, Please Scan Again And Run.`);
-          process.exit();
-        } else if (reason === DisconnectReason.restartRequired) {
-          console.log("Restart Required, Restarting...");
-          this.connectToWhatsApp();
-        } else if (reason === DisconnectReason.timedOut) {
-          console.log("Connection TimedOut, Reconnecting...");
-          this.connectToWhatsApp();
-        } else {
-          this.connectToWhatsApp();
-        }
       }
     });
 

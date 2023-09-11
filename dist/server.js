@@ -33,11 +33,9 @@ const app_1 = __importDefault(require("./app"));
 const baileys_1 = require("@whiskeysockets/baileys");
 const baileys_2 = __importDefault(require("@whiskeysockets/baileys"));
 const path = require("path");
-const boom_1 = require("@hapi/boom");
 const core_service_1 = require("./bot/core.service");
 const mongo_config_1 = __importDefault(require("./config/mongo.config"));
-const openai_1 = require("openai");
-const openai = new openai_1.OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const pino_1 = __importDefault(require("pino"));
 class Server {
     constructor() {
         this.app = app_1.default;
@@ -50,7 +48,7 @@ class Server {
     connectMongoDB() {
         (0, mongo_config_1.default)()
             .then(() => {
-            console.log("connection MongoDB ready");
+            console.log("Connection MongoDB ready");
         })
             .catch((error) => {
             console.error("Error to connect MongoDB ", error);
@@ -60,53 +58,30 @@ class Server {
         let { state, saveCreds } = await (0, baileys_1.useMultiFileAuthState)(path.resolve("./session"));
         let { version, isLatest } = await (0, baileys_1.fetchLatestBaileysVersion)();
         console.log(`using WA v${version.join(".")}, isLatest: ${isLatest}`);
+        const logger = (0, pino_1.default)({
+            level: "silent",
+        });
         const sock = (0, baileys_2.default)({
             printQRInTerminal: true,
             auth: state,
+            logger,
         });
         sock.ev.on("creds.update", saveCreds);
         sock.ev.on("connection.update", async (update) => {
-            var _a;
-            if (update.connection == "open") {
-                console.log("Connection ready!");
+            var _a, _b;
+            const { connection, lastDisconnect } = update;
+            if (connection === "close") {
+                const shouldReconnect = ((_b = (_a = lastDisconnect === null || lastDisconnect === void 0 ? void 0 : lastDisconnect.error) === null || _a === void 0 ? void 0 : _a.output) === null || _b === void 0 ? void 0 : _b.statusCode) !== baileys_1.DisconnectReason.loggedOut;
+                console.log("Connection closed due to ", lastDisconnect === null || lastDisconnect === void 0 ? void 0 : lastDisconnect.error, ", reconnecting ", shouldReconnect);
+                if (shouldReconnect) {
+                    this.connectToWhatsApp();
+                }
             }
-            const { lastDisconnect, connection } = update;
+            else if (connection === "open") {
+                console.log("Connection Whatsapp ready");
+            }
             if (connection) {
                 console.info(`Connection Status : ${connection}`);
-            }
-            if (connection == "close") {
-                let reason = (_a = new boom_1.Boom(lastDisconnect === null || lastDisconnect === void 0 ? void 0 : lastDisconnect.error)) === null || _a === void 0 ? void 0 : _a.output.statusCode;
-                if (reason === baileys_1.DisconnectReason.badSession) {
-                    console.log(`Bad Session File, Please Delete Session and Scan Again`);
-                    sock.logout();
-                }
-                else if (reason === baileys_1.DisconnectReason.connectionClosed) {
-                    console.log("Connection closed, reconnecting....");
-                    this.connectToWhatsApp();
-                }
-                else if (reason === baileys_1.DisconnectReason.connectionLost) {
-                    console.log("Connection Lost from Server, reconnecting...");
-                    this.connectToWhatsApp();
-                }
-                else if (reason === baileys_1.DisconnectReason.connectionReplaced) {
-                    console.log("Connection Replaced, Another New Session Opened, Please Close Current Session First");
-                    sock.logout();
-                }
-                else if (reason === baileys_1.DisconnectReason.loggedOut) {
-                    console.log(`Device Logged Out, Please Scan Again And Run.`);
-                    process.exit();
-                }
-                else if (reason === baileys_1.DisconnectReason.restartRequired) {
-                    console.log("Restart Required, Restarting...");
-                    this.connectToWhatsApp();
-                }
-                else if (reason === baileys_1.DisconnectReason.timedOut) {
-                    console.log("Connection TimedOut, Reconnecting...");
-                    this.connectToWhatsApp();
-                }
-                else {
-                    this.connectToWhatsApp();
-                }
             }
         });
         sock.ev.on("messages.upsert", async (m) => {
