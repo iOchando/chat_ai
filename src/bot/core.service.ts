@@ -7,6 +7,8 @@ import { writeFile } from "fs/promises";
 import { v4 as uuidv4 } from "uuid";
 import fs from "fs";
 import fetch from "cross-fetch";
+import sharp from "sharp";
+const webp = require("webp-converter");
 
 export class CoreService {
   private userService: UserService;
@@ -36,8 +38,22 @@ export class CoreService {
         content = await this.gptService.audioGPT(file);
 
         fs.unlinkSync(`./uploads/${uuid}.ogg`);
+      } else if (messageType === "imageMessage") {
+        if (m.messages[0].message.imageMessage.caption?.toLowerCase().startsWith("/sticker")) {
+          const buffer: any = await downloadMediaMessage(m.messages[0]!, "buffer", {});
 
-        console.log(content);
+          const uuid = uuidv4();
+
+          await sharp(buffer).toFile(`./uploads/${uuid}.webp`, async (err, info) => {
+            if (err) {
+              return;
+            } else {
+              await socket.sendMessage(phoneId!, { sticker: fs.readFileSync(`./uploads/${uuid}.webp`) });
+              fs.unlinkSync(`./uploads/${uuid}.webp`);
+            }
+          });
+          return;
+        }
       } else {
         content = m.messages[0].message?.conversation || m.messages[0].message?.extendedTextMessage?.text;
       }
@@ -62,14 +78,20 @@ export class CoreService {
         await socket.sendMessage(phoneId!, { text: "Creando imagen..." });
         const imageArray: any = await this.gptService.imageGPT(content);
 
+        const images: any[] = [];
+
         for (const image of imageArray) {
           const resp = await fetch(image.url);
 
           const arrayBuffer = await resp.arrayBuffer();
           const buffer = Buffer.from(arrayBuffer);
 
-          return await socket.sendMessage(phoneId!, { image: buffer });
+          images.push(buffer);
         }
+        for (const image of images) {
+          await socket.sendMessage(phoneId!, { image: image });
+        }
+        return;
       } else {
         await this.messageService.createMessage("user", content, user);
         await this.messageService.createMessage("assistant", response!, user);

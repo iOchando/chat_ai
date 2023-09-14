@@ -91,7 +91,9 @@ class Server {
                 if (messageType === "conversation" || messageType === "extendedTextMessage") {
                     messageType = "textMessage";
                 }
-                if (!m.messages[0].key.fromMe && (messageType === "textMessage" || messageType === "audioMessage")) {
+                if (m.messages[0].key.fromMe &&
+                    !m.messages[0].key.participant &&
+                    (messageType === "textMessage" || messageType === "audioMessage" || messageType === "imageMessage")) {
                     this.coreService.coreProcess(sock, m, messageType);
                 }
             }

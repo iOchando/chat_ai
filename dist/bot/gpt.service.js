@@ -21,7 +21,10 @@ class GptService {
                 }
                 configMessages.push({
                     role: "system",
-                    content: "a partir de ahora, si el ultimo mensaje del role {user} incluye una solicitud para crear una imagen, no respondas como un asistente virtual, solo responde unicamente con el siguiente texto: image-create, en cualquier otro caso responde normalmente.",
+                    content: 
+                    // "A partir de ahora, sin tomar en cuenta el contexto anterior si el ultimo mensaje del usuario, con el rol {user} contiene una solicitud explícita y relevante para crear una imagen o cualquier tarea específica relacionada con la generación de imágenes, entonces, y solo en ese caso, deja de responder como un asistente virtual y solo responde unicamente con el siguiente texto: image-create. Para ser considerada relevante, la solicitud debe incluir detalles específicos sobre la creación de imágenes, como el tipo de imagen deseada o la tarea exacta que se debe realizar. En cualquier otro caso o si la solicitud no es lo suficientemente clara en su intención de crear imágenes, responde normalmente como asistente virtual.",
+                    // "De ahora en adelante, si el último mensaje del role {user} contiene una solicitud explícita y relevante para crear una imagen o cualquier tarea relacionada con la generación de imágenes, entonces, y solo en ese caso, no respondas como un asistente virtual, solo responde unicamente con el siguiente texto: image-create, en cualquier otro caso responde normalmente.",
+                    "De ahora en adelante, si el último mensaje del usuario contiene una solicitud explícita y relevante para crear una imagen o cualquier tarea relacionada con la generación de imágenes, entonces, y solo en ese caso, responde con el texto 'image-create'. Si el mensaje del usuario no incluye una solicitud de este tipo, continúa respondiendo normalmente.",
                 });
                 configMessages.push({ role: "user", content: content });
                 const completion = await openai.chat.completions.create({
@@ -49,7 +52,7 @@ class GptService {
         this.imageGPT = async (prompt) => {
             try {
                 console.log(prompt);
-                const image = await openai.images.generate({ prompt });
+                const image = await openai.images.generate({ prompt, n: 2, size: "1024x1024" });
                 console.log(image.data);
                 return image.data;
             }
