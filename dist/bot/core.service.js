@@ -12,8 +12,7 @@ const promises_1 = require("fs/promises");
 const uuid_1 = require("uuid");
 const fs_1 = __importDefault(require("fs"));
 const cross_fetch_1 = __importDefault(require("cross-fetch"));
-const sharp_1 = __importDefault(require("sharp"));
-const webp = require("webp-converter");
+const sharp = require("sharp");
 class CoreService {
     constructor() {
         this.coreProcess = async (socket, m, messageType) => {
@@ -34,7 +33,7 @@ class CoreService {
                     if ((_a = m.messages[0].message.imageMessage.caption) === null || _a === void 0 ? void 0 : _a.toLowerCase().startsWith("/sticker")) {
                         const buffer = await (0, baileys_1.downloadMediaMessage)(m.messages[0], "buffer", {});
                         const uuid = (0, uuid_1.v4)();
-                        await (0, sharp_1.default)(buffer).toFile(`./uploads/${uuid}.webp`, async (err, info) => {
+                        await sharp(buffer).toFile(`./uploads/${uuid}.webp`, async (err, info) => {
                             if (err) {
                                 return;
                             }
@@ -60,25 +59,21 @@ class CoreService {
                 if (!response) {
                     throw new Error(`Failed get response`);
                 }
-                if (response === "image-create") {
+                if (response.includes("image-create")) {
                     await socket.sendMessage(phoneId, { text: "Creando imagen..." });
                     const imageArray = await this.gptService.imageGPT(content);
                     for (const image of imageArray) {
-                        console.log("entro");
                         const resp = await (0, cross_fetch_1.default)(image.url);
                         const arrayBuffer = await resp.arrayBuffer();
                         const buffer = Buffer.from(arrayBuffer);
                         await socket.sendMessage(phoneId, { image: buffer });
                     }
-                    // for (const image of images) {
-                    //   await socket.sendMessage(phoneId!, { image: image });
-                    // }
-                    return;
+                    // await this.messageService.createMessage("assistant", "[imagen]", user);
                 }
                 else {
+                    await socket.sendMessage(phoneId, { text: response });
                     await this.messageService.createMessage("user", content, user);
                     await this.messageService.createMessage("assistant", response, user);
-                    return await socket.sendMessage(phoneId, { text: response });
                 }
             }
             catch (err) {

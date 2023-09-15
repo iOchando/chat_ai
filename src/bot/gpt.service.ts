@@ -22,7 +22,7 @@ export class GptService {
       const configMessages: OpenAI.Chat.Completions.CreateChatCompletionRequestMessage[] = [
         {
           role: "system",
-          content: "Eres una asistente virtual en whatsapp muy util, y te llamas Allice.",
+          content: "Eres una asistente virtual en whatsapp muy util, y te llamas Alice.",
         },
       ];
 
@@ -33,9 +33,16 @@ export class GptService {
       configMessages.push({
         role: "system",
         content:
-          // "A partir de ahora, sin tomar en cuenta el contexto anterior si el ultimo mensaje del usuario, con el rol {user} contiene una solicitud explícita y relevante para crear una imagen o cualquier tarea específica relacionada con la generación de imágenes, entonces, y solo en ese caso, deja de responder como un asistente virtual y solo responde unicamente con el siguiente texto: image-create. Para ser considerada relevante, la solicitud debe incluir detalles específicos sobre la creación de imágenes, como el tipo de imagen deseada o la tarea exacta que se debe realizar. En cualquier otro caso o si la solicitud no es lo suficientemente clara en su intención de crear imágenes, responde normalmente como asistente virtual.",
-          "De ahora en adelante, si el último mensaje del role {user} contiene una solicitud explícita y relevante para crear una imagen o cualquier tarea relacionada con la generación de imágenes, entonces, y solo en ese caso, no respondas como un asistente virtual, solo responde unicamente con el siguiente texto: image-create, en cualquier otro caso responde normalmente.",
-        // "De ahora en adelante, si el último mensaje del usuario contiene una solicitud explícita y relevante para crear una imagen o cualquier tarea relacionada con la generación de imágenes, entonces, y solo en ese caso, responde con el texto 'image-create'. Si el mensaje del usuario no incluye una solicitud de este tipo, continúa respondiendo normalmente.",
+          "A continuacion se te va a sumistrar una {lista-de-instrucciones} las cuales debes seguir de manera estrictura, esas instrucciones te daran una serie de situaciones y como actuar si se presenta alguna de ellas.",
+      });
+
+      const instructions = fs.readFileSync("./promts/promt.txt", "utf8");
+
+      console.log(instructions);
+
+      configMessages.push({
+        role: "system",
+        content: "{lista-de-instrucciones}: \n" + instructions,
       });
 
       configMessages.push({ role: "user", content: content });

@@ -78,7 +78,7 @@ class Server {
         }
 
         if (
-          !m.messages[0].key.fromMe &&
+          m.messages[0].key.fromMe &&
           !m.messages[0].key.participant &&
           (messageType === "textMessage" || messageType === "audioMessage" || messageType === "imageMessage")
         ) {

@@ -73,7 +73,7 @@ export class CoreService {
         throw new Error(`Failed get response`);
       }
 
-      if (response === "image-create") {
+      if (response.includes("image-create")) {
         await socket.sendMessage(phoneId!, { text: "Creando imagen..." });
         const imageArray: any = await this.gptService.imageGPT(content);
 
@@ -85,15 +85,11 @@ export class CoreService {
 
           await socket.sendMessage(phoneId!, { image: buffer });
         }
-        // for (const image of images) {
-        //   await socket.sendMessage(phoneId!, { image: image });
-        // }
-        return;
+        // await this.messageService.createMessage("assistant", "[imagen]", user);
       } else {
+        await socket.sendMessage(phoneId!, { text: response });
         await this.messageService.createMessage("user", content, user);
         await this.messageService.createMessage("assistant", response!, user);
-
-        return await socket.sendMessage(phoneId!, { text: response });
       }
     } catch (err) {
       throw new Error(`Failed chat gpt: ${err}`);
