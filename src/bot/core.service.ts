@@ -7,8 +7,7 @@ import { writeFile } from "fs/promises";
 import { v4 as uuidv4 } from "uuid";
 import fs from "fs";
 import fetch from "cross-fetch";
-import sharp from "sharp";
-const webp = require("webp-converter");
+const sharp = require("sharp");
 
 export class CoreService {
   private userService: UserService;
@@ -44,7 +43,7 @@ export class CoreService {
 
           const uuid = uuidv4();
 
-          await sharp(buffer).toFile(`./uploads/${uuid}.webp`, async (err, info) => {
+          await sharp(buffer).toFile(`./uploads/${uuid}.webp`, async (err: any, info: any) => {
             if (err) {
               return;
             } else {
