@@ -78,19 +78,17 @@ export class CoreService {
         await socket.sendMessage(phoneId!, { text: "Creando imagen..." });
         const imageArray: any = await this.gptService.imageGPT(content);
 
-        const images: any[] = [];
-
         for (const image of imageArray) {
           const resp = await fetch(image.url);
 
           const arrayBuffer = await resp.arrayBuffer();
           const buffer = Buffer.from(arrayBuffer);
 
-          images.push(buffer);
+          await socket.sendMessage(phoneId!, { image: buffer });
         }
-        for (const image of images) {
-          await socket.sendMessage(phoneId!, { image: image });
-        }
+        // for (const image of images) {
+        //   await socket.sendMessage(phoneId!, { image: image });
+        // }
         return;
       } else {
         await this.messageService.createMessage("user", content, user);
