@@ -17,9 +17,9 @@ class CoreService {
     constructor() {
         this.coreProcess = async (socket, m, messageType) => {
             var _a, _b, _c, _d;
+            const phoneId = m.messages[0].key.remoteJid;
             try {
                 let content;
-                const phoneId = m.messages[0].key.remoteJid;
                 if (messageType === "audioMessage") {
                     await socket.sendMessage(phoneId, { text: "Procesando nota de voz..." });
                     const buffer = await (0, baileys_1.downloadMediaMessage)(m.messages[0], "buffer", {});
@@ -77,7 +77,9 @@ class CoreService {
                 }
             }
             catch (err) {
-                throw new Error(`Failed chat gpt: ${err}`);
+                await socket.sendMessage(phoneId, { text: "Oops, parece que tuve un problema al generar el mensaje." });
+                return;
+                // throw new Error(`Failed core service: ${err}`);
             }
         };
         this.userService = new user_service_1.UserService();

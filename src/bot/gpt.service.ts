@@ -33,12 +33,10 @@ export class GptService {
       configMessages.push({
         role: "system",
         content:
-          "A continuacion se te va a sumistrar una {lista-de-instrucciones} las cuales debes seguir de manera estrictura, esas instrucciones te daran una serie de situaciones y como actuar si se presenta alguna de ellas.",
+          "A continuacion se te va a sumistrar una {lista-de-instrucciones} las cuales debes seguir de manera estricta, esas instrucciones te daran una serie de situaciones y como actuar si se presenta alguna de ellas.",
       });
 
       const instructions = fs.readFileSync("./promts/promt.txt", "utf8");
-
-      console.log(instructions);
 
       configMessages.push({
         role: "system",
@@ -54,7 +52,8 @@ export class GptService {
 
       return completion.choices[0].message.content;
     } catch (err) {
-      throw new Error(`Failed chat gpt: ${err}`);
+      return false;
+      // throw new Error(`Failed chat gpt: ${err}`);
     }
   };
 
@@ -66,7 +65,8 @@ export class GptService {
       });
       return transcription.text;
     } catch (err) {
-      throw new Error(`Failed audio gpt: ${err}`);
+      return false;
+      // throw new Error(`Failed audio gpt: ${err}`);
     }
   };
 
@@ -78,7 +78,8 @@ export class GptService {
       console.log(image.data);
       return image.data;
     } catch (err) {
-      throw new Error(`Failed image gpt: ${err}`);
+      return [];
+      // throw new Error(`Failed image gpt: ${err}`);
     }
   };
 }

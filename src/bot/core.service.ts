@@ -21,9 +21,9 @@ export class CoreService {
   }
 
   public coreProcess = async (socket: any, m: any, messageType: string) => {
+    const phoneId = m.messages[0].key.remoteJid;
     try {
       let content;
-      const phoneId = m.messages[0].key.remoteJid;
 
       if (messageType === "audioMessage") {
         await socket.sendMessage(phoneId!, { text: "Procesando nota de voz..." });
@@ -92,7 +92,9 @@ export class CoreService {
         await this.messageService.createMessage("assistant", response!, user);
       }
     } catch (err) {
-      throw new Error(`Failed chat gpt: ${err}`);
+      await socket.sendMessage(phoneId!, { text: "Oops, parece que tuve un problema al generar el mensaje." });
+      return;
+      // throw new Error(`Failed core service: ${err}`);
     }
   };
 }

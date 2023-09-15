@@ -25,10 +25,9 @@ class GptService {
                 }
                 configMessages.push({
                     role: "system",
-                    content: "A continuacion se te va a sumistrar una {lista-de-instrucciones} las cuales debes seguir de manera estrictura, esas instrucciones te daran una serie de situaciones y como actuar si se presenta alguna de ellas.",
+                    content: "A continuacion se te va a sumistrar una {lista-de-instrucciones} las cuales debes seguir de manera estricta, esas instrucciones te daran una serie de situaciones y como actuar si se presenta alguna de ellas.",
                 });
                 const instructions = fs_1.default.readFileSync("./promts/promt.txt", "utf8");
-                console.log(instructions);
                 configMessages.push({
                     role: "system",
                     content: "{lista-de-instrucciones}: \n" + instructions,
@@ -41,7 +40,8 @@ class GptService {
                 return completion.choices[0].message.content;
             }
             catch (err) {
-                throw new Error(`Failed chat gpt: ${err}`);
+                return false;
+                // throw new Error(`Failed chat gpt: ${err}`);
             }
         };
         this.audioGPT = async (file) => {
@@ -53,7 +53,8 @@ class GptService {
                 return transcription.text;
             }
             catch (err) {
-                throw new Error(`Failed audio gpt: ${err}`);
+                return false;
+                // throw new Error(`Failed audio gpt: ${err}`);
             }
         };
         this.imageGPT = async (prompt) => {
@@ -64,7 +65,8 @@ class GptService {
                 return image.data;
             }
             catch (err) {
-                throw new Error(`Failed image gpt: ${err}`);
+                return [];
+                // throw new Error(`Failed image gpt: ${err}`);
             }
         };
         this.userService = new user_service_1.UserService();
