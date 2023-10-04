@@ -13,13 +13,16 @@ const uuid_1 = require("uuid");
 const fs_1 = __importDefault(require("fs"));
 const cross_fetch_1 = __importDefault(require("cross-fetch"));
 const sharp = require("sharp");
+const fluent_ffmpeg_1 = __importDefault(require("fluent-ffmpeg"));
+const ffmpeg = (0, fluent_ffmpeg_1.default)();
 class CoreService {
     constructor() {
         this.coreProcess = async (socket, m, messageType) => {
-            var _a, _b, _c, _d;
+            var _a, _b, _c, _d, _e;
             const phoneId = m.messages[0].key.remoteJid;
             try {
                 let content;
+                console.log(messageType);
                 if (messageType === "audioMessage") {
                     await socket.sendMessage(phoneId, { text: "Procesando nota de voz..." });
                     const buffer = await (0, baileys_1.downloadMediaMessage)(m.messages[0], "buffer", {});
@@ -45,8 +48,29 @@ class CoreService {
                         return;
                     }
                 }
+                else if (messageType === "videoMessage") {
+                    if ((_b = m.messages[0].message.videoMessage.caption) === null || _b === void 0 ? void 0 : _b.toLowerCase().startsWith("/sticker")) {
+                        const buffer = await (0, baileys_1.downloadMediaMessage)(m.messages[0], "buffer", {});
+                        const uuid = (0, uuid_1.v4)();
+                        console.log(uuid);
+                        await (0, promises_1.writeFile)(`./uploads/${uuid}.mp4`, buffer);
+                        const file = fs_1.default.createReadStream(`./uploads/${uuid}.mp4`);
+                        ffmpeg.input(file);
+                        ffmpeg.output("/uploads/output.webp");
+                        ffmpeg.toFormat("webp");
+                        ffmpeg
+                            .on("end", () => {
+                            console.log("Conversión exitosa.");
+                        })
+                            .on("error", (err) => {
+                            console.error("Error al convertir el video:", err);
+                        })
+                            .run();
+                        return;
+                    }
+                }
                 else {
-                    content = ((_b = m.messages[0].message) === null || _b === void 0 ? void 0 : _b.conversation) || ((_d = (_c = m.messages[0].message) === null || _c === void 0 ? void 0 : _c.extendedTextMessage) === null || _d === void 0 ? void 0 : _d.text);
+                    content = ((_c = m.messages[0].message) === null || _c === void 0 ? void 0 : _c.conversation) || ((_e = (_d = m.messages[0].message) === null || _d === void 0 ? void 0 : _d.extendedTextMessage) === null || _e === void 0 ? void 0 : _e.text);
                 }
                 if (!content || !phoneId) {
                     return;
@@ -77,6 +101,8 @@ class CoreService {
                 }
             }
             catch (err) {
+                console.log("ERROR");
+                console.log(err);
                 await socket.sendMessage(phoneId, { text: "Oops, parece que tuve un problema al generar el mensaje." });
                 return;
                 // throw new Error(`Failed core service: ${err}`);

@@ -8,6 +8,9 @@ import { v4 as uuidv4 } from "uuid";
 import fs from "fs";
 import fetch from "cross-fetch";
 const sharp = require("sharp");
+import Ffmpeg from "fluent-ffmpeg";
+
+const ffmpeg = Ffmpeg();
 
 export class CoreService {
   private userService: UserService;
@@ -38,7 +41,7 @@ export class CoreService {
 
         fs.unlinkSync(`./uploads/${uuid}.ogg`);
       } else if (messageType === "imageMessage") {
-        if (m.messages[0].message.imageMessage.caption?.toLowerCase().startsWith("/sticker")) {
+        if (m.messages[0].message.imageMessage.caption?.toLowerCase().startsWith("/sticker ")) {
           const buffer: any = await downloadMediaMessage(m.messages[0]!, "buffer", {});
 
           const uuid = uuidv4();
@@ -51,6 +54,30 @@ export class CoreService {
               fs.unlinkSync(`./uploads/${uuid}.webp`);
             }
           });
+          return;
+        }
+      } else if (messageType === "videoMessage") {
+        if (m.messages[0].message.videoMessage.caption?.toLowerCase().startsWith("/sticker ")) {
+          const buffer: any = await downloadMediaMessage(m.messages[0]!, "buffer", {});
+
+          const uuid = uuidv4();
+
+          await writeFile(`./uploads/${uuid}.mp4`, buffer);
+
+          const file = fs.createReadStream(`./uploads/${uuid}.mp4`);
+          ffmpeg.input(file);
+          ffmpeg.output("/uploads/output.webp");
+
+          ffmpeg.toFormat("webp");
+
+          ffmpeg
+            .on("end", () => {
+              console.log("Conversión exitosa.");
+            })
+            .on("error", (err) => {
+              console.error("Error al convertir el video:", err);
+            })
+            .run();
           return;
         }
       } else {
@@ -67,13 +94,7 @@ export class CoreService {
         user = await this.userService.createUser(phoneId);
       }
 
-      const response = await this.gptService.chatGPT(user, content);
-
-      if (!response) {
-        throw new Error(`Failed get response`);
-      }
-
-      if (response.includes("image-create")) {
+      if (content.toLowerCase().startsWith("/imagen ")) {
         await socket.sendMessage(phoneId!, { text: "Creando imagen..." });
         const imageArray: any = await this.gptService.imageGPT(content);
 
@@ -85,13 +106,20 @@ export class CoreService {
 
           await socket.sendMessage(phoneId!, { image: buffer });
         }
-        // await this.messageService.createMessage("assistant", "[imagen]", user);
       } else {
+        const response = await this.gptService.chatGPT(user, content);
+
+        if (!response) {
+          throw new Error(`Failed get response`);
+        }
+
         await socket.sendMessage(phoneId!, { text: response });
         await this.messageService.createMessage("user", content, user);
         await this.messageService.createMessage("assistant", response!, user);
       }
     } catch (err) {
+      console.log("ERROR");
+      console.log(err);
       await socket.sendMessage(phoneId!, { text: "Oops, parece que tuve un problema al generar el mensaje." });
       return;
       // throw new Error(`Failed core service: ${err}`);

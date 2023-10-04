@@ -1,13 +1,9 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.GptService = void 0;
 const openai_1 = require("openai");
 const user_service_1 = require("../modules/user/user.service");
 const message_service_1 = require("../modules/message/message.service");
-const fs_1 = __importDefault(require("fs"));
 const openai = new openai_1.OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 class GptService {
     constructor() {
@@ -23,15 +19,20 @@ class GptService {
                 for (const message of context.reverse()) {
                     configMessages.push({ role: message.sender, content: message.content });
                 }
+                // configMessages.push({
+                //   role: "system",
+                //   content:
+                //     "A continuacion se te va a sumistrar una {lista-de-instrucciones} las cuales debes seguir de manera estricta, esas instrucciones te daran una serie de situaciones y como actuar si se presenta alguna de ellas.",
+                // });
                 configMessages.push({
                     role: "system",
-                    content: "A continuacion se te va a sumistrar una {lista-de-instrucciones} las cuales debes seguir de manera estricta, esas instrucciones te daran una serie de situaciones y como actuar si se presenta alguna de ellas.",
+                    content: "De ahora en adelante, si el último mensaje del role {user} contiene una solicitud explícita y relevante para crear una imagen o cualquier tarea relacionada con la generación de imágenes, entonces, y solo en ese caso, no respondas como un asistente virtual, solo responde unicamente con el siguiente texto: image-create, en cualquier otro caso responde normalmente.",
                 });
-                const instructions = fs_1.default.readFileSync("./promts/promt.txt", "utf8");
-                configMessages.push({
-                    role: "system",
-                    content: "{lista-de-instrucciones}: \n" + instructions,
-                });
+                // const instructions = fs.readFileSync("./promts/promt.txt", "utf8");
+                // configMessages.push({
+                //   role: "system",
+                //   content: "{lista-de-instrucciones}: \n" + instructions,
+                // });
                 configMessages.push({ role: "user", content: content });
                 const completion = await openai.chat.completions.create({
                     messages: configMessages,

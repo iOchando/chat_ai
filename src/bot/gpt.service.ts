@@ -30,18 +30,24 @@ export class GptService {
         configMessages.push({ role: message.sender as "function" | "system" | "user" | "assistant", content: message.content });
       }
 
-      configMessages.push({
-        role: "system",
-        content:
-          "A continuacion se te va a sumistrar una {lista-de-instrucciones} las cuales debes seguir de manera estricta, esas instrucciones te daran una serie de situaciones y como actuar si se presenta alguna de ellas.",
-      });
+      // configMessages.push({
+      //   role: "system",
+      //   content:
+      //     "A continuacion se te va a sumistrar una {lista-de-instrucciones} las cuales debes seguir de manera estricta, esas instrucciones te daran una serie de situaciones y como actuar si se presenta alguna de ellas.",
+      // });
 
-      const instructions = fs.readFileSync("./promts/promt.txt", "utf8");
+      // configMessages.push({
+      //   role: "system",
+      //   content:
+      //     "De ahora en adelante, si el último mensaje del role {user} contiene una solicitud explícita y relevante para crear una imagen o cualquier tarea relacionada con la generación de imágenes sobre lo que el usuario desee, entonces, y solo en ese caso, no respondas como un asistente virtual, solo responde unicamente con el siguiente texto: image-create, en cualquier otro caso responde normalmente.",
+      // });
 
-      configMessages.push({
-        role: "system",
-        content: "{lista-de-instrucciones}: \n" + instructions,
-      });
+      // const instructions = fs.readFileSync("./promts/promt.txt", "utf8");
+
+      // configMessages.push({
+      //   role: "system",
+      //   content: "{lista-de-instrucciones}: \n" + instructions,
+      // });
 
       configMessages.push({ role: "user", content: content });
 
